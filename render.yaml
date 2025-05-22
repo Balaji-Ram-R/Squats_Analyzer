@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: squat-form-analyzer
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "true"
+    plan: free
