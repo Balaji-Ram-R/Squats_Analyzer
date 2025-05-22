@@ -2,13 +2,14 @@ import gradio as gr
 import mediapipe as mp
 import cv2
 import numpy as np
+import tempfile
+import os
 import warnings
 
 warnings.filterwarnings('ignore')
 
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
 def calculate_angle(a, b, c):
     a, b, c = np.array(a), np.array(b), np.array(c)
@@ -41,14 +42,17 @@ def check_squat_feedback(landmarks):
     accuracy = max(0, min(100, (1 - abs(avg_angle - 95) / 50) * 100))
     return feedback, int(accuracy)
 
-def analyze_squats(video_path):
-    cap = cv2.VideoCapture(video_path)
+def analyze_squats(video_file):
+    pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+    cap = cv2.VideoCapture(video_file)
     frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
     fps = cap.get(cv2.CAP_PROP_FPS) if cap.get(cv2.CAP_PROP_FPS) > 0 else 30
 
+    temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+    output_path = temp_output.name
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    output_video = "output_squat.mp4"
-    out = cv2.VideoWriter(output_video, fourcc, fps, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -65,13 +69,13 @@ def analyze_squats(video_path):
             feedback, accuracy = check_squat_feedback(landmarks)
 
             color = (0, 255, 0) if "Perfect" in feedback else (0, 0, 255)
-            cv2.putText(image, feedback, (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, color, 3)
+            cv2.putText(image, feedback, (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, color, 2)
 
         out.write(image)
 
     cap.release()
     out.release()
-    return output_video
+    return output_path
 
 interface = gr.Interface(
     fn=analyze_squats,
@@ -81,4 +85,5 @@ interface = gr.Interface(
     description="Upload a video of your squats, and get feedback on your form!"
 )
 
-interface.launch(server_name="0.0.0.0", server_port=7860)
+# For Hugging Face and Render, no need for manual server_name/server_port
+interface.launch()
